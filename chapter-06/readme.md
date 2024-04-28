@@ -115,3 +115,5 @@ Deployment を利用して、Pod の数を管理する際に、どのような�
 
 - Recreate: 一度全ての Pod を削除してから、新しい Pod を作成する。
 - RollingUpdate: 一つずつ Pod を削除して、新しい Pod を作成する。
+  - maxUnavailable: 一度に削除できる Pod の最大数
+  - maxSurge: 一度に作成できる Pod の最大数
