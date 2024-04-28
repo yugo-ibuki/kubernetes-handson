@@ -187,3 +187,35 @@ kubectl port-forward <Pod名> <転送先ポート番号>:<転送元ポート番�
 ```shell
 kubectl port-forward myapp 5555:8080 --namespace default
 ```
+
+## マニフェストをその場で編集する (kubectl edit)
+
+この方法を推奨されない
+
+```shell
+kubectl edit <リソース名>
+```
+
+## リソースを削除する (kubectl delete)
+
+本番環境では、通常「Deployment」というリソースを使って、Pod を冗長化している。
+
+ある特定の Pod だけハングしてしまった、と言った時に Pod を削除します。
+
+Deployment を使用していれば、自動的に削除した Pod が再度作成されるようになるので、Pod を削除しても問題ないケースが多い。
+
+```shell
+kubectl delete <リソース名>
+```
+
+### 再起動したい場合 (kubectl rollout restart)
+
+Deployment を利用した Pod をすべて順番に再起動したい場合は、kubectl delete ではなく、kubectl rollout restart を利用する。
+
+```shell
+kubectl rollout restart deployment <Deployment名>
+```
+
+他のコマンドは、チートシートを見るのが良い。
+
+https://kubernetes.io/docs/reference/kubectl/quick-reference/
