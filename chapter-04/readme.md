@@ -107,3 +107,83 @@ Deployment 以外の理由で Pod の参照を絞り込みたい時、
 ```shell
 kubectl get pod --selector(-1) <labelのキー名>=<labelの値>
 ```
+
+## デバッグ用のサイドカーコンテナを立ち上げる
+
+権限が必要な可能性もある。
+
+企業の場合は、自分の権限で立ち上げることができないかもしれない。
+
+```shell
+kubectl debug --stdin --tty <デバッグ対象Pod名> --image=<デバッグ用のコンテナのimage> --target=<デバッグ対象コンテナ名>
+```
+
+### 実際にデバッグ用のコンテナを立ち上げる
+
+```shell
+kubectl debug --stdin --tty myapp --image=curlimages/curl:8.4.0 --target=hello-server --namespace default -- sh
+```
+
+実行結果
+
+```bash
+ kubectl debug --stdin --tty myapp --image=curlimages/curl:8.4.0 --target=hello-server --namespace default -- sh
+Targeting container "hello-server". If you don't see processes from this container it may be because the container runtime doesn't support this feature.
+Defaulting debug container name to debugger-c6b9r.
+If you don't see a command prompt, try pressing enter.
+~ $ curl localhost:8080
+Hello, world!~ $
+```
+
+## コンテナを即座に実行する
+
+```shell
+kubectl run <Pod名> --image=<イメージ名>
+```
+
+これまでは、クラスタ内からアクセスするために、デバッグ用 Pod を起動する必要があった。
+
+```shell
+kubectl --namespace default run busybox --image=busybox:1.36.1 --stdin --tty --restart=Never --rm --command -- nslookup google.com
+```
+これは、busybox という Pod を起動し、nslookup コマンドを実行したら終了
+
+各オプションの説明のテーブル
+
+| オプション | 説明                                    |
+| --- |---------------------------------------|
+| --stdin | 標準入力を受け付ける                            |
+| --tty | 擬似端末を割り当てる                            |
+| --restart=Never | 終了したら再起動しない。デフォルトでは常に再起動する。           |
+| --rm | 終了したら削除する                             |
+| --command | -- の後に渡される拡張引数の一つ目が引数ではなくコマンドとして使われる。 |
+
+## コンテナへログイン
+
+```shell
+kubectl exec --stdin --tty <Pod名> -- <コマンド名>
+```
+
+使用用途としては、アプリケーションがインターネット上からアクセスできなくなったときに、クラスタ内から上記のように IP アドレスでアクセスできるか確認することで、問題を切り分けることができる。
+
+### 手順
+
+1. ログイン用の Pod を起動する (kubectl run <pod> --command -- /bin/sh -c "while true: do sleep 1; done")
+2. Pod ができているか確認する (kubectl get pod)
+3. IP アドレスを取得する (kubectl get pod <pod> --output wide)
+4. ログインする (kubectl exec --stdin --tty <pod> -- /bin/sh)
+5. ログイン後、curl でアクセスする (curl <IPアドレス>:<ポート番号>)
+
+## Port-forward でアクセスする
+
+Service というリソースを利用することで、クラスタ外からのアクセスを可能にする。
+
+kubectl でもお手軽にアクセスすることが可能で、以下のコマンドを利用する。
+
+```shell
+kubectl port-forward <Pod名> <転送先ポート番号>:<転送元ポート番号>
+```
+
+```shell
+kubectl port-forward myapp 5555:8080 --namespace default
+```
