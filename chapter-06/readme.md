@@ -123,3 +123,173 @@ Deployment を利用して、Pod の数を管理する際に、どのような�
 maxSurge 100% は、元あった Pod の数と同じ数だけ Pod を作成する。 
 
 そのため、更新が早く、かつ安全な方法であるが、必要なリソースが倍になるため、使用する際はリソースキャパシティに注意する。
+
+## ReplicaSet のエラー解消
+
+maxUnavailable の値が 25% の場合、3つ立ち上がってると 0.75 になり、切り捨てられて 0 になる。
+
+そのため、Pod の再作成ができない。
+
+maxSurge は切り上げなので、1 になる。
+
+そのため、1個 Pod を立ち上げることができる。
+
+その後、Pod の数が4つになるので、1個 Pod を削除することができる。
+
+## Service
+
+### Service の種類
+
+| Serviceタイプ        | 説明                                                                                                                               |
+|-------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| ClusterIP (デフォルト) | クラスタ内部の IP アドレスで Service を公開します。この Type で指定された IP アドレスはクラスタ内部からしか疎通できない。Ingress というリソースを利用することで外部公開が可能になる。                       |
+| NodePort          | すべての Node の IP アドレスで指定したポート番号(NodePort)を公開する。                                                                                    |
+| LoadBalancer      | 外部ロードバランサを用いて外部 IP アドレスを公開します。ロードバランサは別で用意する必要がある。                                                                               |
+| ExternalName      | Service を externalName フィールドの内容にマッピングする(例えば、ホスト名が api.example.com)。このマッピングにより、クラスタの DNS サーバがその外部ホスト名の値を持つ CNAME レコードを返すように設定される。 |
+
+接続先の Pod が削除されてしまった時に、Service があれば、自動的に新しい Pod に接続することができるルーティングの役割を持つ。
+
+### ClusterIP
+
+手順
+
+1. Deployment で Pod を作成する。
+2. Service の Port を Deployment に設定する。
+3. Service を適用する。
+
+以下コマンドで Service を通して外部からクラスターにアクセスできる。
+
+```bash
+$ kubectl run curl --image curlimages/curl --rm --stdin --tty --restart=Never --command -- curl <Cluster IP>:8080
+```
+
+### NodePort
+
+全 Node に対して Port をひもづけるので、 port-forward しなくてもアクセスできる。
+
+毎回 port-forward するのは面倒なので、NodePort を使うと、外部からアクセスできるが
+
+本番環境では、Node が故障などで利用できなくなると使えなくなるので、ClusterIP や LoadBalancer を使うのが良い。
+
+### Service の DNS
+
+Kubernetes では、Service 用の DNS レコードを自動で作成してくれるため、FQDN を覚えておくと良い。
+
+```bash
+<Service名>.<Namespace名>.svc.cluster.local
+```
+
+Deployment & Service を作成し、以下のコマンドを叩くと、内部の DNS を利用してアクセスできることが確認できる。
+
+```bash
+$ kubectl --namespace default run curl --image curlimages/curl --rm --stdin --tty --restart=Never --command -- curl hello-server-service.default.svc.cluster.local:8080
+Hello, world!pod "curl" deleted
+```
+
+## Service のトラブルシューティング
+
+1. pod の状況を見る
+2. deployment の状況を見る
+3. Service の状況を見る
+
+問題なかった場合は、以下の手順で見ていく。
+
+アプリケーションに近いところから見ていくのが良い。
+
+1. Pod 内からアプリケーションの接続確認を行う
+2. クラスタ内かつ別 Pod から接続確認を行う
+3. クラスタ内かつ別 Pod から Service 経由で接続確認を行う
+
+1に問題があれば、Pod 内の問題。
+
+2に問題があれば、Pod のネットワーク周りの問題
+
+3に問題があれば、Service の設定の問題
+
+全部違ったら、クラスタ内とクラスタ外に接続する設定周りの問題。
+
+1. Pod 内からアプリケーションの接続確認を行う
+
+```bash
+$ kubectl get pod --namespace default
+```
+
+pod の確認を行った後
+
+```bash
+$ kubectl --namespace default debug --stdin --tty <Pod名> --image curlimages/curl --target=hello-server -- sh
+```
+
+Pod名参考: hello-server-6cc6b44795-469mw
+
+すると、Session に入ることができる。
+
+### クラスタ内かつ別 Pod から接続確認を行う
+
+次のコマンドで Pod 一覧を参照し、Pod の IP を取得する
+
+```bash
+$ kubectl get pods -o custom-columns=NAME:.metadata.name,IP:.status.podIP
+```
+
+次のコマンドで、別の Pod から接続確認を行う
+
+```bash
+$ kubectl --namespace default run curl --image curlimages/curl --rm --stdin --tty --restart=Never --command -- curl <PodIP>:<Port>
+```
+
+もし、curl の Pod が消えてなかったら
+
+```bash
+$ kubectl delete pod curl
+```
+
+削除することでできる。
+
+稀に、削除できずに残ってしまうことがあるようだ。
+
+### クラスタ内かつ別 Pod から Service 経由で接続確認を行う
+
+Service の情報を取得する。
+
+```bash
+$ kubectl get svc -o custom-columns=NAME:.metadata.name,IP:.spec.clusterIP
+NAME                    IP
+hello-server-external   10.96.3.161
+kubernetes              10.96.0.1
+```
+
+Service に対して curl を実行する。
+
+```bash
+$ kubectl --namespace default run curl --image curlimages/curl --rm --stdin --tty --restart=Never --command -- curl <Service名>:<Port>
+```
+
+サービスに原因があることが分かったので、Service の設定を見直す。
+
+```bash
+$ kubectl describe service hello-server-external --namespace default
+Name:                     hello-server-external
+Namespace:                default
+Labels:                   <none>
+Annotations:              <none>
+Selector:                 app=hello-serve
+Type:                     NodePort
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.96.3.161
+IPs:                      10.96.3.161
+Port:                     <unset>  8080/TCP
+TargetPort:               8080/TCP
+NodePort:                 <unset>  30599/TCP
+Endpoints:                <none>
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+```
+
+これで適用前の状態と比較する。
+
+```bash
+$ kubectl diff --filename chapter-06/service-nodeport.yaml
+```
