@@ -333,3 +333,60 @@ HOST を設定し直し、apply する。
 この時、deployment が maxSurge で 0 になっていると、Pod が立ち上がらない。
 
 今回は rollingUpdate の maxSurge が 0 になっていたため、kubernetes での更新ができなかった。
+
+## Secret
+
+データベースなどのパスワードを実装にハードコーディングしたくないケースや、本番環境と切り分けてる場合など
+
+アプリケーションの外から設定したい場合がある。
+
+こういった設定に、ConfigMap を参照できる人が全員秘密情報にアクセスできるのはセキュリティ上良くない。
+
+そういった時、base64 などでエンコードした上で、Secret というリソースを使うことでアクセス権を分けることができる。
+
+### Secret の読み込む方法
+
+2つある。
+
+1. コンテナの環境変数として読み込む
+2. ボリュームを利用してコンテナに設定ファイルを読み込む
+
+#### コンテナの環境変数として読み込む
+
+Secret のデータを作成する。
+
+```bash
+$ echo -n 'admin' | base64
+$ echo -n 'admin123' | base64
+```
+
+作成したデータを利用してマニフェストを作成する。
+
+その後、secret のリソースを作成する。
+
+```bash
+$ kubectl apply -f chapter-06/secret/nginx-sample.yaml --namespace default
+pod/nginx-sample created
+secret/nginx-secret created
+```
+
+以下を実行し、コンテナの中に入る。
+
+```bash
+$ kubectl exec -it nginx-sample -- /bin/sh
+```
+
+```bash
+echo $USERNAME
+echo $PASSWORD
+```
+
+登録されていることが確認できる。
+
+#### ボリュームを利用してコンテナに設定ファイルを読み込む
+
+```bash
+kubectl exec --stdin --tty nginx-sample -- /bin/sh       145ms  火  4/30 16:03:40 2024
+# cat /etc/config/server.key
+eM9ku3ecCpUL9zPoIIuG2ptZZC5Cu4ZCQXRymlHajYvZyffpM6
+```
