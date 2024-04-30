@@ -293,3 +293,43 @@ Events:                   <none>
 ```bash
 $ kubectl diff --filename chapter-06/service-nodeport.yaml
 ```
+
+## Pod の外部から情報を読み込む ConfigMap
+
+環境変数などをコンテナ外から値を設定したい時に利用するリソース。
+
+ConfigMap の利用する方法
+
+1. コンテナ内のコマンドの引数として読み込む
+2. コンテナの環境変数として読み込む
+3. ボリュームを利用してアプリケーションのファイルとして読み込む
+
+configMap の変更による環境変数は、アプリケーションの再起動をしないとアプリケーションに反映できない。
+
+そのため、「ボリューム」を利用して、コンテナに設定ファイルを読み込ませる、ことでアプリケーションの再作成なしで configMap の内容を再読み込みすることができる。
+
+configMapKeyRef というフィールドを利用することで、configMap の値を環境変数として利用することができる。
+
+name と key を指定する。
+
+## ボリュームを利用してアプリケーションのファイルとして読み込む
+
+containers の volumeMounts に volume を指定する。
+
+volumes には、configMap を指定する。
+
+## トラブルシューティング
+
+Status が、`CreateContainerConfigError` となっている場合は、コンテナの設定に問題がある。
+
+```bash
+$ kubectl describe pod --namespace default
+```
+
+エラーを確認し、HOST が定義されていないことを確認。
+
+HOST を設定し直し、apply する。
+
+この時、deployment が maxSurge で 0 になっていると、Pod が立ち上がらない。
+
+今回は rollingUpdate の maxSurge が 0 になっていたため、kubernetes での更新ができなかった。
