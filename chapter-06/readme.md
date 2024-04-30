@@ -390,3 +390,70 @@ kubectl exec --stdin --tty nginx-sample -- /bin/sh       145ms  火  4/30 16:
 # cat /etc/config/server.key
 eM9ku3ecCpUL9zPoIIuG2ptZZC5Cu4ZCQXRymlHajYvZyffpM6
 ```
+
+## 1回限りの Job の実行
+
+Job は1回限り実行したい Pod を利用する。
+
+job を見てみる。
+
+```bash
+kubectl get job --namespace default
+NAME           COMPLETIONS   DURATION   AGE
+date-checker   1/1           16s        21s
+```
+
+pod を見てみる。
+
+```bash
+kubectl get pod --namespace default
+NAME                 READY   STATUS      RESTARTS   AGE
+date-checker-zg6mj   0/1     Completed   0          40s
+```
+
+ready が 0/1 になっている。
+
+実行してみる。
+
+```bash
+$ kubectl logs date-checker-zg6mj --namespace default
+```
+
+```bash
+kubectl describe job date-checker --namespace default
+Name:             date-checker
+Namespace:        default
+Selector:         batch.kubernetes.io/controller-uid=5fcd8a28-b1f1-47a8-9b84-394f28658a72
+Labels:           batch.kubernetes.io/controller-uid=5fcd8a28-b1f1-47a8-9b84-394f28658a72
+                  batch.kubernetes.io/job-name=date-checker
+                  controller-uid=5fcd8a28-b1f1-47a8-9b84-394f28658a72
+                  job-name=date-checker
+Annotations:      <none>
+Parallelism:      1
+Completions:      1
+Completion Mode:  NonIndexed
+Start Time:       Tue, 30 Apr 2024 16:19:12 +0900
+Completed At:     Tue, 30 Apr 2024 16:19:28 +0900
+Duration:         16s
+Pods Statuses:    0 Active (0 Ready) / 1 Succeeded / 0 Failed # <- 1 Succeeded となっている
+Pod Template:
+  Labels:  batch.kubernetes.io/controller-uid=5fcd8a28-b1f1-47a8-9b84-394f28658a72
+           batch.kubernetes.io/job-name=date-checker
+           controller-uid=5fcd8a28-b1f1-47a8-9b84-394f28658a72
+           job-name=date-checker
+  Containers:
+   date:
+    Image:      ubuntu:22.04
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      date
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Events:
+  Type    Reason            Age    From            Message
+  ----    ------            ----   ----            -------
+  Normal  SuccessfulCreate  4m3s   job-controller  Created pod: date-checker-zg6mj
+  Normal  Completed         3m48s  job-controller  Job completed
+  ```
