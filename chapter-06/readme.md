@@ -457,3 +457,30 @@ Events:
   Normal  SuccessfulCreate  4m3s   job-controller  Created pod: date-checker-zg6mj
   Normal  Completed         3m48s  job-controller  Job completed
   ```
+
+## CronJob
+
+定期的に Job を実行するためのリソース。
+
+spec に `schedule` というフィールドを追加する。
+
+'2/1 * * * *' という形式で指定する。
+
+```bash
+$ kubectl get cronjob --namespace default
+```
+
+```bash
+$ kubectl get job --namespace default
+NAME            COMPLETIONS   DURATION   AGE
+date-28574386   1/1           3s         51s
+```
+
+```bash
+kubectl get pod --namespace default                              火  4/30 16:48:04 2024
+NAME                  READY   STATUS      RESTARTS   AGE
+date-28574386-bn46s   0/1     Completed   0          2m10s
+date-28574388-q69g8   0/1     Completed   0          10s
+```
+
+2分ごとに実行されているのが分かる。
