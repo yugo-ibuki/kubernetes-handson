@@ -414,4 +414,29 @@ topologyKey というものを指定することで、どのようにマッチ�
 
 ## Pod を分散するための設定: Pod Topology Spread Constraints
 
+- maxSkew
+  - 一番多いトポロジーと一番少ないトポロジーの数の差
+- Taint と Toleration
+  - 特定の Node に Pod をスケジュールするための仕組み
+  - Taint は Node に設定し、Toleration は Pod に設定する
+  - 以下のように設定することで、Pod が特定の Node にスケジュールされる
+    - Taint
+      - `kubectl taint nodes node1 key=ssd:NoSchedule`
+    - Toleration
+      - `tolerations:
+         \- key: "key"
+          operator: "Equal"
+          value: "value"
+          effect: "NoSchedule"`
 
+## Pod Priority と Preemption
+
+手順
+
+1. Pod Priority Class を作成する
+2. Pod Priority を設定する
+
+- system-cluster-critical
+  - クラスタの正常性に影響を及ぼす Pod
+- system-node-critical
+  - Node の正常性に影響を及ぼす Pod
